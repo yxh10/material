@@ -30,13 +30,7 @@ angular.module('ngAnimateStylers', ['ngAnimateSequence'])
         delay = delay || 0;
         duration = duration || 1000;
         var iterations = 1; // FIXME(matias): make sure this can be changed
-        pre = camelCaseStyles(pre);
-
         return function(post, done) {
-          var finalStyles = normalizeVendorPrefixes(post);
-
-          post = camelCaseStyles(post);
-
           var missingProperties = [];
           angular.forEach(post, function(_, key) {
             if (!isDefined(pre[key])) {
@@ -51,16 +45,12 @@ angular.module('ngAnimateStylers', ['ngAnimateSequence'])
           if (missingProperties.length) {
             pre = angular.extend(pre, computeStartingStyles(node, missingProperties));
           }
-
           var animation = node.animate([pre, post], {
             duration : duration,
             delay : delay,
             iterations : iterations
           });
-          animation.onfinish = function() {
-            element.css(finalStyles); 
-            done();
-          };
+          animation.onfinish = done;
         }
       };
 
@@ -82,16 +72,6 @@ angular.module('ngAnimateStylers', ['ngAnimateSequence'])
         return styles;
       }
 
-      function normalizeVendorPrefixes(styles) {
-        var newStyles = {};
-        angular.forEach(styles, function(value, prop) {
-          if(webkit && specialStyles.indexOf(prop) >= 0) {
-            newStyles['webkit' + prop.charAt(0).toUpperCase() + prop.substr(1)] = value;
-          }
-          newStyles[prop]=value;
-        });
-        return newStyles;
-      }
     }]);
 
     // Greensock Animation Platform (GSAP)
@@ -114,15 +94,4 @@ angular.module('ngAnimateStylers', ['ngAnimateSequence'])
         }
       };
     });
-
-    function camelCaseStyles(styles) {
-      var newStyles = {};
-      angular.forEach(styles, function(value, prop) {
-        prop = prop.toLowerCase().replace(/-(.)/g, function(match, group1) {
-          return group1.toUpperCase();
-        });
-        newStyles[prop]=value;
-      });
-      return newStyles;
-    }
   }]);

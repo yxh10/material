@@ -86,19 +86,15 @@ module.exports = {
       'src/services/compiler/compiler.js',
       'src/services/popup/popup.js',
       'src/services/position/position.js',
-      'src/services/throttle/throttle.js',
 
       //Utils
       'src/utils/binding.js',
-      'src/utils/iterator.js',
-      'src/utils/digestConnector.js'
+      'src/utils/list.js',
+      'src/utils/supplant.js',
     ],
     test: [
       'src/**/*.spec.js',
-
-      // TODO(matias): remove this once the sequencer is placed into the ngAnimate core
-
-      'config/lib/angular-animate-sequence/*.spec.js'
+      'config/lib/angular-animate-sequence/*.spec.js' // TODO(matias): remove this once the sequencer is placed into the ngAnimate core 
     ]
   },
 
