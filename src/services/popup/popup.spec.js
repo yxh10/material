@@ -54,25 +54,9 @@ describe('$materialPopup service', function() {
 
   });
 
-  describe('leave()', function() {
-
-    it('should remove element', inject(function($rootScope) {
-      var popup = setup({
-        template: '<div>'
-      });
-      angular.element('<div>').append(popup.element);
-
-      popup.leave();
-      $rootScope.$apply();
-
-      expect(popup.element.parent().length).toBe(0);
-    }));
-
-  });
-
   describe('destroy()', function() {
 
-    it('should leave and then destroy scope', inject(function($rootScope) {
+    it('should leave and then destroy scope', inject(function($rootScope, $animate) {
       var popup = setup({
         template: '<div>'
       });
@@ -81,12 +65,15 @@ describe('$materialPopup service', function() {
       $rootScope.$apply();
 
       var scope = popup.element.scope();
-      spyOn(popup, 'leave').andCallFake(function(cb) { cb(); });
       spyOn(scope, '$destroy');
 
       popup.destroy();
-      expect(popup.leave).toHaveBeenCalled();
+      $rootScope.$digest();
+      $animate.triggerCallbacks();
+
+      expect(popup.element.parent().length).toBe(0);
       expect(scope.$destroy).toHaveBeenCalled();
+
     }));
 
   });
