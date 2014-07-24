@@ -9,12 +9,6 @@ angular.module('material.animations')
  */
   .service('$ripple', ['$$rAF', function($$rAF) {
 
-    var now = Date.now;
-
-    if (window.performance && performance.now) {
-      now = performance.now.bind(performance);
-    }
-
     /**
      * Unlike angular.extend() will always overwrites destination,
      * mixin() only overwrites the destination if it is undefined; so
@@ -41,6 +35,12 @@ angular.module('material.animations')
 
     return (function(){
 
+      var now = Date.now;
+
+      if (window.performance && performance.now) {
+        now = performance.now.bind(performance);
+      }
+
       /**
        *  Ripple creates a `paper-ripple` which is a visual effect that other quantum paper elements can
        *  use to simulate a rippling effect emanating from the point of contact.  The
@@ -48,17 +48,19 @@ angular.module('material.animations')
        */
       function Ripple(canvas, options) {
 
+        var defaults = {
+          onComplete: angular.noop,   // Completion hander/callback
+          initialOpacity: 0.4,       // The initial default opacity set on the wave.
+          opacityDecayVelocity: 1.75, // How fast (opacity per second) the wave fades out.
+          backgroundFill: true,
+          pixelDensity: 1
+        };
+
         this.canvas = canvas;
         this.waves = [];
         this.cAF = undefined;
 
-        return angular.extend(this, mixin(options || { }, {
-          onComplete: angular.noop,   // Completion hander/callback
-          initialOpacity: 0.6,        // The initial default opacity set on the wave.
-          opacityDecayVelocity: 1.7,  // How fast (opacity per second) the wave fades out.
-          backgroundFill: true,
-          pixelDensity: 1
-        }));
+        return angular.extend(this, mixin(options || { }, defaults));
       }
 
       /**
@@ -71,14 +73,29 @@ angular.module('material.animations')
          */
         createAt : function (startAt) {
           var canvas = this.adjustBounds(this.canvas);
+          var wave = createWave(canvas);
+
           var width = canvas.width / this.pixelDensity;
           var height = canvas.height / this.pixelDensity;
-          var recenter = this.canvas.classList.contains("recenteringTouch");
 
           // Auto center ripple if startAt is not defined...
           startAt = startAt || { x: Math.round(width / 2), y: Math.round(height / 2) };
 
-          this.waves.push( createWave(canvas, width, height, startAt, recenter ) );
+          wave.isMouseDown = true;
+          wave.mouseDownStart = now();
+          wave.mouseUpStart = 0.0;
+          wave.tDown = 0.0;
+          wave.tUp = 0.0;
+          wave.startPosition = startAt;
+          wave.containerSize = Math.max(width, height);
+          wave.maxRadius = distanceFromPointToFurthestCorner(wave.startPosition, {w: width, h: height}) * 0.75;
+
+          if (this.canvas.classList.contains("recenteringTouch")) {
+            wave.endPosition = {x: width / 2, y: height / 2};
+            wave.slideDistance = dist(wave.startPosition, wave.endPosition);
+          }
+
+          this.waves.push(wave);
           this.cancelled = false;
 
           this.animate();
@@ -334,28 +351,20 @@ angular.module('material.animations')
     }
 
     /**
-     *  Wave is created on mouseDown
+     *
      */
-    function createWave(elem, width, height, startAt, recenter ) {
+    function createWave(elem) {
+      var elementStyle = window.getComputedStyle(elem);
+
       var wave = {
-        startPosition : startAt,
-        containerSize : Math.max(width, height),
-        waveColor: window.getComputedStyle(elem).color,
-        maxRadius : distanceFromPointToFurthestCorner(startAt, {w: width, h: height}) * 0.75,
-
-        isMouseDown : true,
-        mouseDownStart : now(),
-        mouseUpStart : 0.0,
-
-        tDown : 0.0,
-        tUp : 0.0
+        waveColor: elementStyle.color,
+        maxRadius: 0,
+        isMouseDown: false,
+        mouseDownStart: 0.0,
+        mouseUpStart: 0.0,
+        tDown: 0,
+        tUp: 0
       };
-
-      if ( recenter ) {
-        wave.endPosition = {x: width / 2, y: height / 2};
-        wave.slideDistance = dist(wave.startPosition, wave.endPosition);
-      }
-
       return wave;
     }
 
