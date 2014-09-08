@@ -74,6 +74,9 @@ module.exports = {
       'src/components/animate/noEffect.js',
       'src/components/animate/inkCssRipple.js',
 
+      // Sticky Components
+      'src/components/sticky/sticky.js',
+
       // Components
       'src/components/buttons/buttons.js',
       'src/components/card/card.js',
