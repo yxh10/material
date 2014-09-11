@@ -88,7 +88,6 @@ module.exports = {
       'src/components/radioButton/radioButton.js',
       'src/components/sidenav/sidenav.js',
       'src/components/slider/slider.js',
-      'src/components/slider/slider2.js',
       'src/components/switch/switch.js',
       'src/components/tabs/tabs.js',
       'src/components/tabs/js/*.js',

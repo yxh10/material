@@ -135,5 +135,8 @@ var Util = {
  * This should be added in a better place later.
  */
 angular.element.prototype.focus = function() {
-  this[0].focus();
+  if (this.length) {
+    this[0].focus();
+  }
+  return this;
 };
