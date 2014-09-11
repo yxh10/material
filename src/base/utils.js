@@ -128,7 +128,11 @@ var Util = {
 };
 
 /* 
- * TODO refactor code to use element[0].focus
+ * Since removing jQuery from the demos, some code that uses `element.focus()` is broken.
+ *
+ * We need to add `element.focus()`, because it's testable unlike `element[0].focus`.
+ *
+ * This should be added in a better place later.
  */
 angular.element.prototype.focus = function() {
   this[0].focus();

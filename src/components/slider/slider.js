@@ -38,7 +38,7 @@ angular.module('material.components.slider', [
  * </hljs>
  * <h4>Discrete Mode</h4>
  * <hljs lang="html">
- * <material-slider ng-model="myDiscreteValue" step="10" min="10" max="130">
+ * <material-slider discrete ng-model="myDiscreteValue" step="10" min="10" max="130">
  * </material-slider>
  * </hljs>
  *
