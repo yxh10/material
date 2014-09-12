@@ -6,10 +6,6 @@ angular.module('material.components.slider', [
   'material.animations'
 ])
 .directive('materialSlider', [
-  '$materialEffects',
-  '$timeout',
-  '$$rAF',
-  '$window',
   SliderDirective
 ]);
 
@@ -47,16 +43,25 @@ angular.module('material.components.slider', [
  * @param {number=} min The minimum value the user is allowed to pick. Default 0.
  * @param {number=} max The maximum value the user is allowed to pick. Default 100.
  */ 
-function SliderDirective($materialEffects, $timeout, $$rAF, $window) {
+function SliderDirective() {
   var hasTouch = !!('ontouchend' in document);
   var POINTERDOWN_EVENT = hasTouch ? 'touchstart' : 'mousedown';
   var POINTERUP_EVENT = hasTouch ? 'touchend touchcancel' : 'mouseup mouseleave';
   var POINTERMOVE_EVENT = hasTouch ? 'touchmove' : 'mousemove';
 
   return {
-    require: '?ngModel',
-    scope: {
-    },
+    scope: {},
+    require: ['?ngModel', 'materialSlider'],
+    controller: [
+      '$scope', 
+      '$element', 
+      '$attrs', 
+      '$$rAF', 
+      '$timeout', 
+      '$window', 
+      '$materialEffects', 
+      SliderController
+    ],
     template:
       '<div class="slider-track-container">' +
         '<div class="slider-track">' +
@@ -82,8 +87,32 @@ function SliderDirective($materialEffects, $timeout, $$rAF, $window) {
       '</div>',
     link: postLink
   };
+    
+  function postLink(scope, element, attr, ctrls) {
+    var ngModelCtrl = ctrls[0] || {
+      // Mock ngModelController if it doesn't exist to give us 
+      // the minimum functionality needed
+      $setViewValue: function(val) {
+        this.$viewValue = val;
+        this.$viewChangeListeners.forEach(function(cb) { cb(); });
+      },
+      $parsers: [], 
+      $formatters: [], 
+      $viewChangeListeners: []
+    };
 
-  function postLink(scope, element, attr, ngModelCtrl) {
+    var sliderCtrl = ctrls[1];
+    sliderCtrl.init(ngModelCtrl);
+  }
+}
+
+/** 
+ * We use a controller for all the logic so that we can expose a few
+ * things to unit tests
+ */
+function SliderController(scope, element, attr, $$rAF, $timeout, $window, $materialEffects) {
+
+  this.init = function init(ngModelCtrl) {
     var thumb = angular.element(element[0].querySelector('.slider-thumb'));
     var thumbContainer = thumb.parent();
     var trackContainer = angular.element(element[0].querySelector('.slider-track-container'));
@@ -95,21 +124,29 @@ function SliderDirective($materialEffects, $timeout, $$rAF, $window) {
     attr.max ? attr.$observe('max', updateMax) : updateMax(100);
     attr.step ? attr.$observe('step', updateStep) : updateStep(1);
 
+    element.attr('tabIndex', 0);
+    element.on('keydown', keydownListener);
+
+    var hammertime = new Hammer(element[0], {
+      recognizers: [
+        [Hammer.Pan, { direction: Hammer.DIRECTION_HORIZONTAL }]
+      ]
+    });
+    hammertime.on('hammer.input', onInput);
+    hammertime.on('panstart', onPanStart);
+    hammertime.on('pan', onPan);
+
     // On resize, recalculate the slider's dimensions and re-render
     var onWindowResize = $$rAF.debounce(function() {
       refreshSliderDimensions();
       ngModelRender();
     });
     angular.element($window).on('resize', onWindowResize);
+
     scope.$on('$destroy', function() {
       angular.element($window).off('resize', onWindowResize);
+      hammertime.destroy();
     });
-
-    element.attr('tabIndex', 0);
-    element.on('keydown', keydownListener);
-    element.on(POINTERDOWN_EVENT, onPointerDown);
-    element.on(POINTERMOVE_EVENT, onPointerMove);
-    element.on(POINTERUP_EVENT, onPointerUp);
 
     ngModelCtrl.$render = ngModelRender;
     ngModelCtrl.$viewChangeListeners.push(ngModelRender);
@@ -148,54 +185,30 @@ function SliderDirective($materialEffects, $timeout, $$rAF, $window) {
     }
 
     /**
-     * Slide listeners
-     */
-    var pointerState = {};
-    function onPointerDown(ev) {
-      if (element[0].hasAttribute('disabled')) return;
-      if (pointerState.down) return;
-
-      pointerState.down = true;
-      element.addClass('active');
-      element[0].focus();
-
-      refreshSliderDimensions();
-      doEventSliderMovement(ev);
-    }
-    function onPointerMove(ev) {
-      if (!pointerState.down) return;
-
-      if (!pointerState.moving) {
-        pointerState.moving = true;
-        element.addClass('panning');
-      }
-
-      ev.preventDefault();
-      doEventSliderMovement(ev);
-    }
-    function onPointerUp(ev) {
-      pointerState = {};
-      element.removeClass('panning active');
-    }
-    function doEventSliderMovement(ev) {
-      // Support jQuery events
-      ev = ev.originalEvent || ev;
-      var x = ev.touches ? ev.touches[0].pageX : ev.pageX;
-
-      var percent = (x - sliderDimensions.left) / (sliderDimensions.width);
-      scope.$evalAsync(function() { setModelValue(min + percent * (max - min)); });
-    }
-
-    /**
      * left/right arrow listener
      */
     function keydownListener(ev) {
+      // Support jQuery events
+      ev = (ev.originalEvent || ev);
+
+      var stepAmount = step;
+
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) {
+        // When pressing ctrl/meta/alt, go up step * 5. Or, if step * 5
+        // is going to be the whole slider, max out to half the slider.
+        stepAmount = Math.min(stepAmount * 5, (max - min) / 2);
+      }
+
       if (ev.which === Constant.KEY_CODE.LEFT_ARROW) {
         ev.preventDefault();
-        scope.$evalAsync(function() { setModelValue(ngModelCtrl.$viewValue - step); });
+        scope.$evalAsync(function() {
+          setModelValue(ngModelCtrl.$viewValue - stepAmount);
+        });
       } else if (ev.which === Constant.KEY_CODE.RIGHT_ARROW) {
         ev.preventDefault();
-        scope.$evalAsync(function() { setModelValue(ngModelCtrl.$viewValue + step); });
+        scope.$evalAsync(function() {
+          setModelValue(ngModelCtrl.$viewValue + stepAmount);
+        });
       }
     }
 
@@ -234,5 +247,47 @@ function SliderDirective($materialEffects, $timeout, $$rAF, $window) {
       element.toggleClass('slider-min', percent === 0);
     }
 
-  }
+
+    /**
+     * Slide listeners
+     */
+    var isSliding = false;
+    function onInput(ev) {
+      if (!isSliding && ev.eventType === Hammer.INPUT_START && 
+          !element[0].hasAttribute('disabled')) {
+
+        isSliding = true;
+        element.addClass('active');
+        element[0].focus();
+        refreshSliderDimensions();
+        doSlide(ev.center.x);
+
+      } else if (isSliding && ev.eventType === Hammer.INPUT_END) {
+        isSliding = false;
+        element.removeClass('panning active');
+      }
+    }
+    function onPanStart() {
+      if (!isSliding) return;
+      element.addClass('panning');
+    }
+    function onPan(ev) {
+      if (!isSliding) return;
+      doSlide(ev.center.x);
+      ev.preventDefault();
+    }
+
+    /**
+     * Expose for testing
+     */
+    this._onInput = onInput;
+    this._onPanStart = onPanStart;
+    this._onPan = onPan;
+
+    function doSlide(x) {
+      var percent = (x - sliderDimensions.left) / (sliderDimensions.width);
+      scope.$evalAsync(function() { setModelValue(min + percent * (max - min)); });
+    }
+
+  };
 }
